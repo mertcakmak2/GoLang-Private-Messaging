@@ -27,26 +27,31 @@ func main() {
 	})
 
 	m.HandleMessage(func(s *melody.Session, msg []byte) {
-		m.BroadcastFilter(msg, func(q *melody.Session) bool {
-			fmt.Println("********************************")
-			fmt.Println("Message: ", string(msg))
-
-			mapMsg := map[string]string{}
-			json.Unmarshal(msg, &mapMsg)
-
-			receiver := strings.Split(strings.Split(q.Request.URL.Path, "/channel/")[1], "/ws")[0]
-			fmt.Printf("receiver: %v\n", receiver)
-
-			if q.Request.URL.Path == s.Request.URL.Path || mapMsg["receiver"] == receiver {
-				fmt.Printf("q.Request.URL.Path: %v\n", q.Request.URL.Path)
-				fmt.Printf("s.Request.URL.Path: %v\n", s.Request.URL.Path)
-				fmt.Printf("mapMsg[\"receiver\"]: %v\n", mapMsg["receiver"])
-				fmt.Printf("mapMsg[\"sender\"]: %v\n", mapMsg["sender"])
-				return true
-			}
-			return false
-		})
+		go sendMessageToUser(m, s, msg)
+		fmt.Println("handle message")
 	})
 
 	r.Run(":5000")
+}
+
+func sendMessageToUser(m *melody.Melody, s *melody.Session, msg []byte) {
+	m.BroadcastFilter(msg, func(q *melody.Session) bool {
+		message := convertByteToMessage(msg)
+		receiver := getReceiver(q.Request.URL.Path)
+		if q.Request.URL.Path == s.Request.URL.Path || message["receiver"] == receiver {
+			return true
+		}
+		return false
+	})
+}
+
+func convertByteToMessage(msg []byte) map[string]string {
+	message := map[string]string{}
+	json.Unmarshal(msg, &message)
+	return message
+}
+
+func getReceiver(path string) string {
+	receiver := strings.Split(strings.Split(path, "/channel/")[1], "/ws")[0]
+	return receiver
 }
